@@ -1,83 +1,72 @@
-  name: SSE CI Workflow
+name: SSE CI/CD
 
-  on:
-    push:
-      branches:
-        - main
+on: [push]
 
-  jobs:
-    style_check:
-      name: Style Check
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout Code
-          uses: actions/checkout@v4
+jobs:
+  style_check:
+    runs-on: ubuntu-24.04
 
-        - name: Install Python
-          uses: actions/setup-python@v4
-          with:
-            python-version: "3.12"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install spell check
+        run: pip install black
+      - name: Run spell check
+        run: black --check .
 
-        - name: Install Dependencies
-          run: |
-            pip install black
+  test:
+    runs-on: ubuntu-24.04
 
-        - name: Run Black
-          run: black --check .
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies
+        run: pip install pytest coverage numpy matplotlib
+      - name: Run coverage
+        run: coverage run -m pytest .
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage-db
+          path: .coverage
+          if-no-files-found: error
+          retention-days: 1
+          include-hidden-files: true
 
-    test:
-      name: Run Tests
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout Code
-          uses: actions/checkout@v4
+  coverage_report:
+    runs-on: ubuntu-24.04
 
-        - name: Install Python
-          uses: actions/setup-python@v4
-          with:
-            python-version: "3.12"
+    needs: test
 
-        - name: Install Dependencies
-          run: |
-            pip install pytest coverage numpy matplotlib
-
-        - name: Run Tests
-          run: |
-            coverage run -m pytest .
-
-        - name: Upload Coverage
-          uses: actions/upload-artifact@v4
-          with:
-            name: coverage
-            path: artifact.coverage
-            retention-days: 1
-            include-hidden-files: true
-
-    coverage_report:
-      name: Coverage Report
-      runs-on: ubuntu-latest
-      needs: test
-      steps:
-        - name: Checkout Code
-          uses: actions/checkout@v4
-
-        - name: Install Python
-          uses: actions/setup-python@v4
-          with:
-            python-version: "3.12"
-
-        - name: Install Coverage
-          run: |
-            pip install coverage
-
-        - name: Generate Coverage Report
-          run: |
-            coverage report
-            coverage xml
-
-        - name: Upload Coverage XML
-          uses: actions/upload-artifact@v4
-          with:
-            name: coverage-xml
-            path: coverage.xml
-            retention-days: 14
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install coverage dependencies
+        run: pip install coverage
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: code-coverage-db
+      - name: Generate coverage report
+        run: coverage report -m
+      - name: Generate coverage XML report
+        run: coverage xml
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+          if-no-files-found: error
+          retention-days: 14
